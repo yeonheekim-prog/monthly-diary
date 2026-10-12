@@ -103,7 +103,7 @@ details.how li{margin:3px 0}
 .cal .memo textarea{height:100%;font-size:11px;line-height:1.6}
 
 /* 인생지도 */
-.lifemap{position:relative;width:100%;aspect-ratio:1/1;margin:2px auto 6px}
+.lifemap{position:relative;width:100%;aspect-ratio:1/1;margin:10px auto 14px}
 .lifemap svg{position:absolute;inset:0;width:100%;height:100%}
 .goalsbox{position:absolute;left:23%;top:23%;width:54%;height:54%;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:4px}
 .goalsbox b{color:var(--green);font-size:11px}
@@ -112,7 +112,9 @@ details.how li{margin:3px 0}
 .area{position:absolute;width:auto;max-width:34%;transform:translate(-50%,-50%);text-align:center;border:0;background:var(--paper);font:inherit;padding:2px;cursor:pointer;border-radius:8px}
 .area:active{background:var(--green3)}
 .area b{display:block;color:var(--green);font-size:11px;white-space:nowrap}
-.area small{display:block;font-size:9px;color:var(--ink);line-height:1.25;max-height:2.6em;overflow:hidden}
+.areatext{position:absolute;width:32%;transform:translate(-50%,-50%);text-align:center;border:0;background:none;font:inherit;padding:2px;cursor:pointer;color:var(--ink);font-size:10px;line-height:1.35}
+.areatext span{display:block}
+.areatext:active{background:var(--green3);border-radius:6px}
 .hab{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1}
 .box{border:1px solid var(--line);border-radius:10px;padding:6px;display:flex;flex-direction:column;background:#fff;min-width:0}
 .hab .lab{white-space:normal;font-size:11px;line-height:1.2}
@@ -501,7 +503,11 @@ function rLife(){
   var areas=m.life.areas.map(function(a,i){
     // 선과 선 사이, 원 바로 바깥 테두리 위에 영역 이름 (왼쪽 위=일, 시계 방향으로 자기성장·가족·인간관계·향유)
     var ang=(-126+72*i)*Math.PI/180,cx=50+31.5*Math.cos(ang),cy=50+31.5*Math.sin(ang);
-    return '<button class="area" data-area="'+i+'" style="left:'+cx+'%;top:'+cy+'%"><b>'+esc(a.name||'영역')+'</b>'+(a.text?'<small>'+esc(a.text)+'</small>':'')+'</button>';
+    // 바라는 것은 같은 칸의 더 바깥쪽에, 줄바꿈한 줄마다 따로
+    var rx=50+44*Math.cos(ang),tx=Math.min(84,Math.max(16,rx)),ty=Math.min(95,Math.max(5,50+44*Math.sin(ang)+(rx!==tx?12:0))); // 양옆 칸은 이름과 겹치지 않게 조금 아래로
+    return '<button class="area" data-area="'+i+'" style="left:'+cx+'%;top:'+cy+'%"><b>'+esc(a.name||'영역')+'</b></button>'+
+      (a.text?'<button class="areatext" data-area="'+i+'" style="left:'+tx+'%;top:'+ty+'%">'+
+        a.text.split('\n').filter(function(l){return l.trim();}).map(function(l){return '<span>'+esc(l.trim())+'</span>';}).join('')+'</button>':'');
   }).join('');
   view.innerHTML=
     how('📖 인생지도 쓰는 법',[
