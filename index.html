@@ -216,7 +216,7 @@ table.rm td.c.half{border-left:2px solid #cfcabd}
       <button id="label" aria-label="오늘로"></button>
       <button class="iconbtn" id="nextBtn" aria-label="다음">▶</button>
     </div>
-    <div class="row" style="flex-wrap:nowrap"><span id="pageTitle"></span><button class="iconbtn" id="menuBtn" aria-label="메뉴">⋯</button></div>
+    <div class="row" style="flex-wrap:nowrap"><span id="pageTitle"></span><button class="iconbtn" id="syncBtn" aria-label="동기화" style="font-size:16px">☁️</button><button class="iconbtn" id="menuBtn" aria-label="메뉴">⋯</button></div>
   </div>
   <nav class="idx" id="idx"></nav>
 </header>
@@ -265,8 +265,8 @@ function blankMonth(){
 }
 function blankDay(){return {pm:'',pd:'',pn:'',csfm:'',csfd:'',csfn:'',rec:{},like:'',lack:'',learn:'',longfor:'',praise:'',memo:{idea:'',talk:'',read:'',etc:''}};}
 function blankWeek(){return {plan:'',csf:'',tasks:['','','','','','','',''],cells:{},see:'',praise:''};}
-function dayData(s,create){if(!D.days[s]){if(!create)return null;D.days[s]=blankDay();}return D.days[s];}
-function weekData(s,create){if(!D.weeks[s]){if(!create)return null;D.weeks[s]=blankWeek();}return D.weeks[s];}
+function dayData(s,create){if(!D.days[s]){if(!create)return null;D.days[s]=blankDay();markNew('d:'+s,D.days[s]);}return D.days[s];}
+function weekData(s,create){if(!D.weeks[s]){if(!create)return null;D.weeks[s]=blankWeek();markNew('w:'+s,D.weeks[s]);}return D.weeks[s];}
 
 function load(){
   try{var s=localStorage.getItem(KEY);if(s)D=JSON.parse(s);}catch(e){D=null;}
@@ -332,8 +332,10 @@ function fixD(){
 }
 var saveTimer=null;
 function save(quiet){
+  var changed=stamp();
   try{localStorage.setItem(KEY,JSON.stringify(D));if(!quiet)toast('저장됨');}
   catch(e){toast('⚠️ 저장 실패: 백업을 내보내 주세요');}
+  if(changed)scheduleSync(2500);
 }
 function saveSoon(){clearTimeout(saveTimer);saveTimer=setTimeout(function(){save(true);},300);}
 
@@ -368,7 +370,7 @@ function month(key){
       m.life.good=prev.life.good;m.life.bad=prev.life.bad;
       m.routine=prev.routine.map(function(r){return {title:r.title,time:r.time,place:r.place,contents:r.contents,checks:{}};});
     }
-    D.months[key]=m;
+    D.months[key]=m;markNew('m:'+key,m);
   }
   return D.months[key];
 }
@@ -794,7 +796,8 @@ function openMenu(){
   openSheet('<h3>메뉴</h3>'+
     '<p class="muted">기록은 이 폰의 사파리 안에만 저장돼요. 사파리 기록을 지우면 사라질 수 있으니 가끔 백업해 두세요.</p>'+
     '<div class="row" style="flex-direction:column;align-items:stretch">'+
-      '<button class="btn fill" id="exp">💾 백업 파일로 저장</button>'+
+      '<button class="btn fill" id="syncOpen">☁️ 폰·PC 동기화</button>'+
+      '<button class="btn" id="exp">💾 백업 파일로 저장</button>'+
       '<button class="btn" id="copyAll">📋 백업 내용 복사 (카톡·메모에 붙여넣기)</button>'+
       '<button class="btn" id="imp">📂 백업 파일 불러오기</button>'+
       '<button class="btn" id="pasteImp">📥 복사한 백업 붙여넣어 불러오기</button>'+
@@ -814,6 +817,7 @@ function openMenu(){
   document.getElementById('imp').onclick=function(){document.getElementById('fileIn').click();};
   document.getElementById('pasteImp').onclick=function(){var s=prompt('복사해 둔 백업 내용을 붙여넣으세요');if(s)importText(s);};
   document.getElementById('mClose').onclick=closeSheet;
+  document.getElementById('syncOpen').onclick=openSync;
 }
 function fallbackCopy(s){var t=document.createElement('textarea');t.value=s;document.body.appendChild(t);t.select();
   try{document.execCommand('copy');toast('복사했어요');}catch(e){toast('복사 실패');}t.remove();}
@@ -852,7 +856,164 @@ view.addEventListener('click',function(e){
   save(true);scrollKeep(render);
 });
 window.addEventListener('pagehide',function(){save(true);});
-document.addEventListener('visibilitychange',function(){if(document.hidden)save(true);});
+document.addEventListener('visibilitychange',function(){if(document.hidden){save(true);if(SY.dirty)syncNow();}else syncNow();});
+
+/* ---------- 폰·PC 동기화: GitHub 비공개 저장소의 파일 하나(diary.json)를 함께 씀 ----------
+   기록을 칸(달·주·날·자기선언) 단위로 나눠, 칸마다 마지막으로 고친 시각(D.mt)이 더 최근인 쪽을 남긴다. */
+var SKEY='monthlyDiary_sync',REPO='yeonheekim-prog/monthly-diary-data',FILE='diary.json';
+var SY=(function(){try{return JSON.parse(localStorage.getItem(SKEY))||{};}catch(e){return {};}})();
+var SNAP={},syncTimer=null,syncing=false,syncAgain=false,pendingRender=false;
+function saveSY(){try{localStorage.setItem(SKEY,JSON.stringify(SY));}catch(e){}}
+function units(o){
+  var u={};
+  Object.keys(o.months||{}).forEach(function(k){u['m:'+k]=o.months[k];});
+  Object.keys(o.weeks||{}).forEach(function(k){u['w:'+k]=o.weeks[k];});
+  Object.keys(o.days||{}).forEach(function(k){u['d:'+k]=o.days[k];});
+  if(o.decl)u['g:decl']=o.decl;
+  return u;
+}
+function setUnit(k,v){
+  var p=k.slice(0,2),id=k.slice(2);
+  if(p==='m:')D.months[id]=v;else if(p==='w:')D.weeks[id]=v;else if(p==='d:')D.days[id]=v;else D.decl=v;
+}
+function snapAll(){SNAP={};var u=units(D);Object.keys(u).forEach(function(k){SNAP[k]=JSON.stringify(u[k]);});}
+function markNew(k,o){if(!D.mt)D.mt={};D.mt[k]=1;SNAP[k]=JSON.stringify(o);}
+function stamp(){
+  if(!D.mt)D.mt={};
+  var u=units(D),ch=false,now=Date.now();
+  Object.keys(u).forEach(function(k){var j=JSON.stringify(u[k]);if(SNAP[k]!==j){SNAP[k]=j;D.mt[k]=Math.max(now,(D.mt[k]||0)+1);ch=true;}}); // 기기 시계가 조금 달라도 방금 고친 쪽이 이기게
+  if(ch)SY.dirty=true;
+  return ch;
+}
+function payload(){return {v:1,mt:D.mt,months:D.months,weeks:D.weeks,days:D.days,decl:D.decl};}
+function merge(r){
+  var lu=units(D),ru=units(r),rm=r.mt||{},lm=D.mt,changed=false,needPush=false,keys={};
+  Object.keys(lu).forEach(function(k){keys[k]=1;});Object.keys(ru).forEach(function(k){keys[k]=1;});
+  Object.keys(keys).forEach(function(k){
+    if(!(k in ru)){needPush=true;return;}
+    var lt=lm[k]||0,rt=rm[k]||0,rj=JSON.stringify(ru[k]);
+    if(!(k in lu)||(rt>=lt&&SNAP[k]!==rj)){ // 같은 시각이면 클라우드 쪽을 따름
+      setUnit(k,ru[k]);lm[k]=rt;SNAP[k]=rj;changed=true;
+    }else if(lt>rt&&SNAP[k]!==rj)needPush=true;
+  });
+  return {changed:changed,push:needPush};
+}
+function b64e(s){return btoa(unescape(encodeURIComponent(s)));}
+function b64d(s){return decodeURIComponent(escape(atob(s.replace(/\s/g,''))));}
+function api(path,opt){
+  opt=opt||{};
+  return fetch('https://api.github.com/repos/'+REPO+path,{method:opt.method||'GET',cache:'no-store',
+    headers:{'Authorization':'Bearer '+SY.token,'Accept':'application/vnd.github+json','Content-Type':'application/json'},
+    body:opt.body?JSON.stringify(opt.body):undefined});
+}
+function apiErr(r){var e=new Error('HTTP '+r.status);e.status=r.status;return e;}
+function pull(){
+  return api('/contents/'+FILE+'?t='+Date.now()).then(function(r){
+    if(r.status===404)return {sha:null,data:null};
+    if(!r.ok)throw apiErr(r);
+    return r.json().then(function(j){
+      if(j.content)return {sha:j.sha,data:JSON.parse(b64d(j.content))};
+      return api('/git/blobs/'+j.sha).then(function(b){if(!b.ok)throw apiErr(b);return b.json();})
+        .then(function(b){return {sha:j.sha,data:JSON.parse(b64d(b.content))};});
+    });
+  });
+}
+function pushUp(sha){
+  var body={message:'sync '+new Date().toISOString(),content:b64e(JSON.stringify(payload()))};
+  if(sha)body.sha=sha;
+  return api('/contents/'+FILE,{method:'PUT',body:body}).then(function(r){if(!r.ok)throw apiErr(r);return r.json();});
+}
+function setSyncIcon(st,msg){
+  var b=document.getElementById('syncBtn');if(!b)return;
+  b.textContent=!SY.token?'☁️':st==='busy'?'⏳':st==='err'?'⚠️':'✅';
+  b.style.opacity=SY.token?1:.45;
+  SY.status=st;SY.msg=msg||'';
+}
+function scheduleSync(ms){if(!SY.token)return;clearTimeout(syncTimer);syncTimer=setTimeout(syncNow,ms||2500);}
+function syncNow(){
+  if(!SY.token)return Promise.resolve();
+  if(syncing){syncAgain=true;return Promise.resolve();}
+  syncing=true;setSyncIcon('busy');
+  stamp();try{localStorage.setItem(KEY,JSON.stringify(D));}catch(e){}
+  return pull().then(function(r){
+    var res=r.data?merge(r.data):{changed:false,push:true};
+    if(res.changed){try{localStorage.setItem(KEY,JSON.stringify(D));}catch(e){}refreshView();}
+    if(res.push)return pushUp(r.sha);
+  }).then(function(){
+    SY.dirty=false;SY.last=Date.now();saveSY();setSyncIcon('ok');
+  }).catch(function(e){
+    var m=e.status===401?'토큰이 틀렸거나 기한이 지났어요':e.status===403||e.status===404?'저장소 권한이 없어요(토큰 설정 확인)':
+          e.status===409||e.status===422?'두 기기가 동시에 저장해서 다시 맞추는 중':'인터넷 연결을 확인해 주세요';
+    if(e.status===409||e.status===422)syncAgain=true;
+    saveSY();setSyncIcon('err',m);
+  }).then(function(){
+    syncing=false;
+    if(syncAgain){syncAgain=false;setTimeout(syncNow,800);}
+  });
+}
+function refreshView(){
+  var a=document.activeElement;
+  if(a&&view.contains(a)&&(a.tagName==='TEXTAREA'||a.tagName==='INPUT')){pendingRender=true;return;}
+  scrollKeep(render);
+}
+view.addEventListener('focusout',function(){if(pendingRender)setTimeout(function(){
+  var a=document.activeElement;if(!(a&&view.contains(a)&&(a.tagName==='TEXTAREA'||a.tagName==='INPUT'))){pendingRender=false;scrollKeep(render);}},300);});
+setInterval(function(){if(SY.token&&!document.hidden)syncNow();},60000);
+
+function openSync(){
+  if(!SY.token){
+    openSheet('<h3>☁️ 폰·PC 동기화</h3>'+
+      '<p class="muted" style="font-size:13px">기록을 GitHub의 비공개 저장소(monthly-diary-data)에 함께 저장해서, 폰과 PC가 같은 다이어리를 보게 해요. 기기마다 처음 한 번만 "열쇠(토큰)"를 넣으면 돼요.</p>'+
+      '<ol style="font-size:13px;padding-left:18px;margin:6px 0">'+
+        '<li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub 토큰 만들기</a>를 열어요.</li>'+
+        '<li>Repository access → <b>Only select repositories</b> → <b>monthly-diary-data</b> 선택</li>'+
+        '<li>Permissions → Repository permissions → <b>Contents: Read and write</b></li>'+
+        '<li>Generate token → 나온 글자(github_pat_…)를 복사해서 아래에 붙여넣어요.</li>'+
+        '<li>다른 기기에서도 같은 토큰을 한 번 붙여넣어요.</li>'+
+      '</ol>'+
+      '<input type="password" id="tokIn" placeholder="github_pat_..." autocomplete="off" style="font-size:16px;border:1px solid var(--line);border-radius:8px;padding:0 10px;height:44px">'+
+      '<div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn" id="tkC">닫기</button><button class="btn fill" id="tkOk">연결</button></div>');
+    document.getElementById('tkC').onclick=closeSheet;
+    document.getElementById('tkOk').onclick=function(){connect(document.getElementById('tokIn').value.trim());};
+    return;
+  }
+  var last=SY.last?new Date(SY.last):null;
+  openSheet('<h3>☁️ 폰·PC 동기화 켜짐</h3>'+
+    '<p style="font-size:14px;margin:4px 0">'+(SY.status==='err'?'⚠️ '+esc(SY.msg):'✅ 자동으로 맞추는 중이에요')+'</p>'+
+    '<p class="muted">마지막으로 맞춘 시각: '+(last?(last.getMonth()+1)+'/'+last.getDate()+' '+last.getHours()+':'+('0'+last.getMinutes()).slice(-2):'아직 없음')+'</p>'+
+    '<p class="muted">고치면 몇 초 뒤 자동으로 올라가고, 앱을 열 때·다시 볼 때·1분마다 다른 기기 기록을 받아와요.</p>'+
+    '<div class="row" style="justify-content:space-between;margin-top:10px"><button class="btn" id="syOff">연결 끊기</button>'+
+    '<span class="row"><button class="btn" id="syC">닫기</button><button class="btn fill" id="syNow">지금 맞추기</button></span></div>');
+  document.getElementById('syC').onclick=closeSheet;
+  document.getElementById('syNow').onclick=function(){closeSheet();syncNow().then(function(){toast(SY.status==='ok'?'맞췄어요':'⚠️ '+SY.msg);});};
+  document.getElementById('syOff').onclick=function(){
+    if(!confirm('이 기기의 동기화를 끌까요? (기록은 이 기기에 그대로 남아요)'))return;
+    SY={};saveSY();setSyncIcon();closeSheet();toast('동기화를 껐어요');
+  };
+}
+function connect(tok){
+  if(!tok){toast('토큰을 붙여넣어 주세요');return;}
+  SY.token=tok;
+  var btn=document.getElementById('tkOk');if(btn){btn.disabled=true;btn.textContent='확인 중…';}
+  api('').then(function(r){if(!r.ok)throw apiErr(r);return pull();}).then(function(r){
+    try{localStorage.setItem('monthlyDiary_presync',JSON.stringify(D));}catch(e){} // 연결 전 기록 보관
+    var stampAll=function(){var now=Date.now();Object.keys(units(D)).forEach(function(k){D.mt[k]=now;});};
+    if(!r.data){ // 클라우드가 비어 있으면 이 기기 기록이 기준
+      stampAll();saveSY();closeSheet();toast('연결했어요. 이 기기 기록을 올려요');syncNow();return;
+    }
+    openSheet('<h3>클라우드에 이미 기록이 있어요</h3>'+
+      '<p style="font-size:14px">어느 쪽을 기준으로 합칠까요? 같은 날짜에 서로 다른 내용이 있으면 기준 쪽이 남아요.</p>'+
+      '<div class="row" style="flex-direction:column;align-items:stretch">'+
+        '<button class="btn fill" id="useR">☁️ 클라우드 기록 기준 (다른 기기에서 쓰던 걸 받아오기)</button>'+
+        '<button class="btn" id="useL">📱 이 기기 기록 기준</button></div>');
+    document.getElementById('useR').onclick=function(){D.mt={};snapAll();saveSY();closeSheet();syncNow().then(function(){toast('클라우드 기록을 받아왔어요');});};
+    document.getElementById('useL').onclick=function(){stampAll();saveSY();closeSheet();syncNow().then(function(){toast('이 기기 기록 기준으로 합쳤어요');});};
+  }).catch(function(e){
+    SY={};saveSY();
+    if(btn){btn.disabled=false;btn.textContent='연결';}
+    alert(e.status===401?'토큰이 맞지 않아요. 다시 복사해 주세요.':e.status===403||e.status===404?'이 토큰으로 monthly-diary-data 저장소를 열 수 없어요. 저장소 선택과 Contents 권한(Read and write)을 확인해 주세요.':'연결하지 못했어요. 인터넷을 확인해 주세요.');
+  });
+}
 
 /* ---------- 이동 ---------- */
 function setSel(s){D.sel=s;D.cur=s.slice(0,7);}
@@ -868,12 +1029,17 @@ document.getElementById('prevBtn').onclick=function(){step(-1);};
 document.getElementById('nextBtn').onclick=function(){step(1);};
 document.getElementById('label').onclick=function(){if(PG[D.tab].unit&&D.sel!==todayStr()){go(todayStr());toast('오늘로 왔어요');}};
 document.getElementById('menuBtn').onclick=openMenu;
+document.getElementById('syncBtn').onclick=openSync;
 document.getElementById('idx').onclick=function(e){var b=e.target.closest('[data-page]');if(b)openPage(b.getAttribute('data-page'));};
 
 load();
+if(!D.mt)D.mt={};
+snapAll();
 if(D.lastDay!==todayStr()){setSel(todayStr());D.lastDay=todayStr();D.tab='day';} // 날이 바뀌면 오늘 데일리부터
 save(true);
 render();
+setSyncIcon();
+syncNow();
 })();
 </script>
 </body>
