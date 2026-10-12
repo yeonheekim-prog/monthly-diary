@@ -5,5 +5,5 @@
 
 - 주소: https://yeonheekim-prog.github.io/monthly-diary/
 - 저장: localStorage 키 `monthlyDiary_v1` (월별 `months["YYYY-MM"]`)
-- 탭: 하루(Plan·CSF·Record·4L) / 주간(Plan·TASK·요일별·Weekly-See) / 월간(인생지도·계획·로드맵) / 루틴 / 달력
-- 하루 `days["YYYY-MM-DD"]`, 주간 `weeks["월요일 날짜"]`. 메뉴(⋯)에서 백업 내보내기·불러오기
+- 페이지 9장(위쪽 목차): 자기선언 / 달력 / 인생지도 / 월간계획 / 로드맵 / 루틴 / 주간 / 데일리 / 메모 — 종이 다이어리 사진과 같은 배치
+- 데이터: `months["YYYY-MM"]`, `weeks["월요일 날짜"]`(tasks[8], cells{"줄-요일":{t,s}}), `days["YYYY-MM-DD"]`, `decl`. 메뉴(⋯)에서 백업
