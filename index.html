@@ -109,7 +109,7 @@ details.how li{margin:3px 0}
 .goalsbox b{color:var(--green);font-size:11px}
 .goalsbox textarea{background:none;text-align:center;font-size:11px;line-height:1.4;height:80%;padding:0 8%;scrollbar-width:none}
 .goalsbox textarea::-webkit-scrollbar{display:none}
-.area{position:absolute;width:auto;min-width:22%;max-width:34%;transform:translate(-50%,-50%);text-align:center;border:0;background:none;font:inherit;padding:2px;cursor:pointer;border-radius:8px}
+.area{position:absolute;width:auto;max-width:34%;transform:translate(-50%,-50%);text-align:center;border:0;background:var(--paper);font:inherit;padding:2px;cursor:pointer;border-radius:8px}
 .area:active{background:var(--green3)}
 .area b{display:block;color:var(--green);font-size:11px;white-space:nowrap}
 .area small{display:block;font-size:9px;color:var(--ink);line-height:1.25;max-height:2.6em;overflow:hidden}
@@ -489,7 +489,7 @@ function editDay(d){
 
 /* 3. 인생지도 · Good / Bad Habit */
 function rLife(){
-  // 원 밖을 선 5개로 나눈 다섯 칸에 영역을 하나씩 (종이 다이어리 그림과 같은 모양)
+  // 원에서 뻗은 선 다섯 개마다 영역을 하나씩 (종이 다이어리 그림과 같은 모양)
   var m=month(),lines='',R=27;
   for(var i=0;i<5;i++){
     var ang=(-90+72*i)*Math.PI/180,dx=Math.cos(ang),dy=Math.sin(ang),x=50+R*dx,y=50+R*dy;
@@ -497,7 +497,8 @@ function rLife(){
     lines+='<line x1="'+x+'" y1="'+y+'" x2="'+(x+t*dx)+'" y2="'+(y+t*dy)+'" stroke="#cfcabd" stroke-width=".4"/><circle cx="'+x+'" cy="'+y+'" r="1" fill="#2e6b4e"/>';
   }
   var areas=m.life.areas.map(function(a,i){
-    var ang=(-54+72*i)*Math.PI/180,cx=Math.min(87,Math.max(13,50+41*Math.cos(ang))),cy=Math.min(91,Math.max(9,50+41*Math.sin(ang)));
+    // 각 선이 원과 만나는 점 바로 바깥(선 위)에 영역 이름
+    var ang=(-90+72*i)*Math.PI/180,cx=Math.min(86,Math.max(14,50+37*Math.cos(ang))),cy=Math.min(92,Math.max(8,50+37*Math.sin(ang)));
     return '<button class="area" data-area="'+i+'" style="left:'+cx+'%;top:'+cy+'%"><b>'+esc(a.name||'영역')+'</b>'+(a.text?'<small>'+esc(a.text)+'</small>':'')+'</button>';
   }).join('');
   view.innerHTML=
