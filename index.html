@@ -105,11 +105,13 @@ details.how li{margin:3px 0}
 /* 인생지도 */
 .lifemap{position:relative;width:100%;aspect-ratio:1/1;margin:2px auto 6px}
 .lifemap svg{position:absolute;inset:0;width:100%;height:100%}
-.goalsbox{position:absolute;left:19%;top:19%;width:62%;height:62%;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:4px}
+.goalsbox{position:absolute;left:23%;top:23%;width:54%;height:54%;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:4px}
 .goalsbox b{color:var(--green);font-size:11px}
-.goalsbox textarea{background:none;text-align:center;font-size:11px;line-height:1.4;height:80%;padding:0 8%}
-.area{position:absolute;width:30%;text-align:center;border:0;background:none;font:inherit;padding:2px;cursor:pointer}
-.area b{display:block;color:var(--green);font-size:11px}
+.goalsbox textarea{background:none;text-align:center;font-size:11px;line-height:1.4;height:80%;padding:0 8%;scrollbar-width:none}
+.goalsbox textarea::-webkit-scrollbar{display:none}
+.area{position:absolute;width:auto;min-width:22%;max-width:34%;transform:translate(-50%,-50%);text-align:center;border:0;background:none;font:inherit;padding:2px;cursor:pointer;border-radius:8px}
+.area:active{background:var(--green3)}
+.area b{display:block;color:var(--green);font-size:11px;white-space:nowrap}
 .area small{display:block;font-size:9px;color:var(--ink);line-height:1.25;max-height:2.6em;overflow:hidden}
 .hab{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1}
 .box{border:1px solid var(--line);border-radius:10px;padding:6px;display:flex;flex-direction:column;background:#fff;min-width:0}
@@ -487,13 +489,16 @@ function editDay(d){
 
 /* 3. 인생지도 · Good / Bad Habit */
 function rLife(){
-  var m=month(),lines='',ends=[[50,0],[100,32],[80,100],[20,100],[0,32]],pos=[[50,0],[86,24],[78,82],[22,82],[14,24]];
+  // 원 밖을 선 5개로 나눈 다섯 칸에 영역을 하나씩 (종이 다이어리 그림과 같은 모양)
+  var m=month(),lines='',R=27;
   for(var i=0;i<5;i++){
-    var ang=(-90+72*i)*Math.PI/180,x=50+31*Math.cos(ang),y=50+31*Math.sin(ang);
-    lines+='<line x1="'+x+'" y1="'+y+'" x2="'+ends[i][0]+'" y2="'+ends[i][1]+'" stroke="#cfcabd" stroke-width=".4"/><circle cx="'+x+'" cy="'+y+'" r="1" fill="#2e6b4e"/>';
+    var ang=(-90+72*i)*Math.PI/180,dx=Math.cos(ang),dy=Math.sin(ang),x=50+R*dx,y=50+R*dy;
+    var t=Math.min(dx>1e-6?(100-x)/dx:dx<-1e-6?-x/dx:1e9,dy>1e-6?(100-y)/dy:dy<-1e-6?-y/dy:1e9);
+    lines+='<line x1="'+x+'" y1="'+y+'" x2="'+(x+t*dx)+'" y2="'+(y+t*dy)+'" stroke="#cfcabd" stroke-width=".4"/><circle cx="'+x+'" cy="'+y+'" r="1" fill="#2e6b4e"/>';
   }
   var areas=m.life.areas.map(function(a,i){
-    return '<button class="area" data-area="'+i+'" style="left:'+Math.min(70,Math.max(0,pos[i][0]-15))+'%;top:'+pos[i][1]+'%"><b>'+esc(a.name||'영역')+'</b>'+(a.text?'<small>'+esc(a.text)+'</small>':'')+'</button>';
+    var ang=(-54+72*i)*Math.PI/180,cx=Math.min(87,Math.max(13,50+41*Math.cos(ang))),cy=Math.min(91,Math.max(9,50+41*Math.sin(ang)));
+    return '<button class="area" data-area="'+i+'" style="left:'+cx+'%;top:'+cy+'%"><b>'+esc(a.name||'영역')+'</b>'+(a.text?'<small>'+esc(a.text)+'</small>':'')+'</button>';
   }).join('');
   view.innerHTML=
     how('📖 인생지도 쓰는 법',[
@@ -505,7 +510,7 @@ function rLife(){
     '<div class="spread two">'+
       '<div class="page">'+lab('Life Location')+
         '<div class="lifemap"><svg viewBox="0 0 100 100" preserveAspectRatio="none">'+
-          '<circle cx="50" cy="50" r="31" fill="#fff" stroke="#cfcabd" stroke-width=".4"/><circle cx="50" cy="50" r="36" fill="none" stroke="#e2ded3" stroke-width=".3"/>'+lines+'</svg>'+
+          '<circle cx="50" cy="50" r="27" fill="#fff" stroke="#cfcabd" stroke-width=".4"/><circle cx="50" cy="50" r="31" fill="none" stroke="#e2ded3" stroke-width=".3"/>'+lines+'</svg>'+
           '<div class="goalsbox"><b>Goals</b>'+ta('life.goals','큰 목표','plain',3)+'</div>'+areas+'</div>'+
         lab('Memo')+ta('life.memo','','grid fill',6)+
       '</div>'+
