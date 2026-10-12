@@ -112,8 +112,8 @@ table.rm td.c.wk{border-left:2px solid #d9d4c7}
 .cal .d .dots i{width:6px;height:6px;border-radius:50%;background:var(--green)}
 
 /* 월간 안쪽 탭 */
-.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:#efece4;border-radius:12px;padding:4px;margin-bottom:12px}
-.seg button{height:40px;border:0;border-radius:9px;background:none;font:inherit;font-size:14px;color:var(--sub)}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:#efece4;border-radius:12px;padding:4px;margin-bottom:12px}
+.seg button{height:40px;border:0;border-radius:9px;background:none;font:inherit;font-size:13px;padding:0 2px;color:var(--sub)}
 .seg button.on{background:#fff;color:var(--green);font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.08)}
 
 /* 오늘 걸린 과제·루틴 칩 */
@@ -153,6 +153,14 @@ table.rm td.c.wk{border-left:2px solid #d9d4c7}
 .wday textarea{min-height:44px}
 .lf{font-size:14px;margin:4px 0;display:flex;gap:6px;align-items:flex-start}
 .lf span{flex:1}
+
+/* 자기선언 */
+.decl{display:flex;gap:6px;align-items:flex-start;border-bottom:1px solid var(--line)}
+.decl .no{color:var(--green);font-weight:700;min-width:18px;font-size:14px;padding-top:12px}
+.decl textarea{background:none;min-height:0;font-size:17px;line-height:1.45;padding:10px 0}
+.decl .del{min-width:36px;height:36px;border:0;background:none;color:var(--sub);font-size:18px}
+.today-decl{font-size:17px;font-weight:600;line-height:1.5;margin:2px 0 6px}
+.read-all p{font-size:18px;margin:10px 0;line-height:1.5}
 
 /* 하단 탭 */
 nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:#fffdf8;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);padding-bottom:env(safe-area-inset-bottom)}
@@ -200,8 +208,8 @@ nav button.on{color:var(--green);font-weight:700}
 (function(){
 'use strict';
 var KEY='monthlyDiary_v1';
-var TABS={day:'Daily-Plan',week:'Weekly-Plan',life:'Life Location · Goals',plan:'Monthly-Plan',road:'Monthly-Road Map',routine:'Monthly-Routine Challenge',cal:'Monthly-Schedule'};
-var MTABS={life:'인생지도',plan:'월간계획',road:'로드맵'};
+var TABS={decl:'자기선언',day:'Daily-Plan',week:'Weekly-Plan',life:'Life Location · Goals',plan:'Monthly-Plan',road:'Monthly-Road Map',routine:'Monthly-Routine Challenge',cal:'Monthly-Schedule'};
+var MTABS={decl:'자기선언',life:'인생지도',plan:'월간계획',road:'로드맵'};
 var DOW=['월','화','수','목','금','토','일'];
 var AREA_NAMES=['일','자기성장','가족','인간관계','향유'];
 var RM_ROWS=8;
@@ -228,6 +236,15 @@ function load(){
 function fixD(){
   if(!D.days)D.days={};
   if(!D.weeks){D.weeks={};seedWeek();}
+  if(!D.decl)D.decl={lines:[ // 종이 다이어리 자기선언 페이지. (?)는 판독이 불확실한 글자
+    "나는 '그릿'이 있는 사람이 되었다.",
+    "나는 '유머'가 있는 사람이 되었다.",
+    "나는 '귀티' 나는 사람이 되었다.",
+    "나는 내가 '좋아하는 것'을 고르는 사람이 되었다.",
+    "나는 미안 / 열등감 / 소속감(?) / 죄책감에 집착하지 X",
+    "나는 내가 진짜 되고 싶은 사람이 되었다.",
+    "나는 '중심잡힌' 사람이 되었다.",
+    "나는 '조급함'을 버렸다."]};
   if(!TABS[D.tab])D.tab='day';
   if(!MTABS[D.mtab])D.mtab='plan';
   if(!D.sel)D.sel=fmt(new Date());
@@ -307,6 +324,7 @@ function getP(obj,path){return path.split('.').reduce(function(o,k){return o==nu
 function setP(obj,path,v){var ks=path.split('.'),o=obj;for(var i=0;i<ks.length-1;i++)o=o[ks[i]];o[ks[ks.length-1]]=v;}
 // 경로 앞머리: '@d.' = 고른 날, '@w.' = 고른 주, 없으면 = 고른 달
 function rootOf(path,create){
+  if(path.indexOf('@g.')===0)return [D.decl,path.slice(3)];
   if(path.indexOf('@d.')===0)return [dayData(D.sel,create),path.slice(3)];
   if(path.indexOf('@w.')===0)return [weekData(mondayOf(D.sel),create),path.slice(3)];
   return [month(),path];
@@ -315,7 +333,7 @@ function getV(path){var r=rootOf(path,false);return r[0]?getP(r[0],r[1]):'';}
 function setV(path,v){var r=rootOf(path,true);setP(r[0],r[1],v);}
 function ta(path,ph,cls,rows){return '<textarea class="'+(cls||'')+'" data-k="'+path+'" rows="'+(rows||3)+'" placeholder="'+esc(ph||'')+'">'+esc(getV(path))+'</textarea>';}
 function inp(path,ph){return '<input type="text" data-k="'+path+'" value="'+esc(getV(path))+'" placeholder="'+esc(ph||'')+'">';}
-function grow(el){if(el.tagName!=='TEXTAREA'||el.closest('.goalsbox'))return;el.style.height='auto';el.style.height=Math.max(el.scrollHeight+2,66)+'px';}
+function grow(el){if(el.tagName!=='TEXTAREA'||el.closest('.goalsbox'))return;el.style.height='auto';el.style.height=Math.max(el.scrollHeight+2,el.closest('.decl')?0:66)+'px';}
 var toastT;
 function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(function(){t.classList.remove('show');},1200);}
 function how(title,items){return '<details class="how"><summary>'+title+'</summary><ul>'+items.map(function(i){return '<li>'+i+'</li>';}).join('')+'</ul></details>';}
@@ -335,7 +353,7 @@ function render(){
   var navTab=MTABS[D.tab]?'month':D.tab;
   [].forEach.call(document.querySelectorAll('#tabs button'),function(b){b.classList.toggle('on',b.getAttribute('data-tab')===navTab);});
   month();
-  ({day:rDay,week:rWeek,life:rLife,plan:rPlan,road:rRoad,routine:rRoutine,cal:rCal})[D.tab]();
+  ({decl:rDecl,day:rDay,week:rWeek,life:rLife,plan:rPlan,road:rRoad,routine:rRoutine,cal:rCal})[D.tab]();
   if(MTABS[D.tab]){
     var seg='<div class="seg">'+Object.keys(MTABS).map(function(k){return '<button data-seg="'+k+'" class="'+(k===D.tab?'on':'')+'">'+MTABS[k]+'</button>';}).join('')+'</div>';
     view.insertAdjacentHTML('afterbegin',seg);
@@ -358,7 +376,12 @@ function rDay(){
     return '<div class="h'+(h%6===0?' k':'')+(isToday&&h===nowH?' now':'')+'">'+hourLabel(h)+'</div>'+
       '<input type="text" data-k="@d.rec.'+h+'" value="'+esc(getV('@d.rec.'+h))+'" placeholder="">';
   }).join('');
-  view.innerHTML=
+  var dl=D.decl.lines.filter(function(x){return x.trim();}),dlHtml='';
+  if(dl.length){var dd0=pd(s),doy=Math.round((dd0-new Date(dd0.getFullYear(),0,1))/864e5);
+    dlHtml='<div class="card"><div class="label">오늘의 자기선언 <small>매일 한 줄씩 바뀌어요</small></div>'+
+      '<div class="today-decl">'+esc(dl[doy%dl.length])+'</div>'+
+      '<button class="btn small" id="readDecl">전체 소리 내어 읽기</button></div>';}
+  view.innerHTML=dlHtml+
     how('📖 하루 쓰는 법',[
       '<b>아침</b>: 아래 "오늘 걸린 과제"(월간 로드맵)를 보고 오늘 할 일을 정해요.',
       '<b>Plan</b>은 빽빽하게 쓰지 않아요. 오늘의 핵심 하나 + 오전 1~2개, 오후 1개, 저녁엔 쉼이나 자기성장 1~2개.',
@@ -391,6 +414,12 @@ function rDay(){
       '<div class="fieldlabel" style="margin-top:6px">독서</div>'+ta('@d.memo.read','읽고 들은 것 중 남길 것','grid',3)+
       '<div class="fieldlabel" style="margin-top:6px">기타</div>'+ta('@d.memo.etc','','grid',3)+
     '</details>';
+  if(dl.length)document.getElementById('readDecl').onclick=function(){
+    openSheet('<h3>자기선언</h3><div class="read-all">'+dl.map(function(x){return '<p>'+esc(x)+'</p>';}).join('')+'</div>'+
+      '<div class="row" style="justify-content:space-between"><button class="btn" id="declEdit">고치기</button><button class="btn fill" id="declDone">다 읽었어요</button></div>');
+    document.getElementById('declDone').onclick=function(){closeSheet();toast('좋아요! 오늘도 그렇게 💚');};
+    document.getElementById('declEdit').onclick=function(){closeSheet();D.tab=D.mtab='decl';save(true);render();window.scrollTo(0,0);};
+  };
   document.getElementById('lfNext').onclick=function(){
     var v=(getV('@d.longfor')||'').trim();
     if(!v){toast('Long for를 먼저 적어 주세요');return;}
@@ -399,6 +428,27 @@ function rDay(){
     nx.pm=(nx.pm?nx.pm+'\n':'')+line;save(true);toast('내일 Morning Plan에 옮겼어요');
   };
   [].forEach.call(view.querySelectorAll('details.card textarea'),function(t){t.closest('details').addEventListener('toggle',function(){grow(t);});});
+}
+
+/* ---------- 자기선언 ---------- */
+function rDecl(){
+  var rows=D.decl.lines.map(function(x,i){
+    return '<div class="decl"><span class="no">'+(i+1)+'</span>'+ta('@g.lines.'+i,'나는 … 사람이 되었다.','',1)+
+      '<button class="del" data-ddel="'+i+'" aria-label="지우기">×</button></div>';}).join('');
+  view.innerHTML=
+    how('📖 자기선언 쓰는 법',[
+      '되고 싶은 나를 <b>이미 된 것처럼</b> "나는 ~ 사람이 되었다."로 적어요.',
+      '하루 탭 맨 위에 매일 한 줄씩 돌아가며 나와요. "전체 소리 내어 읽기"로 한 번에 읽을 수도 있어요.',
+      '인생지도의 Goals와 함께 보면 좋아요. 월마다 바뀌는 게 아니라 한 번 적어 두고 계속 다듬는 페이지예요.',
+      '(?)가 붙은 줄은 사진에서 글씨를 확실히 못 읽은 곳이에요. 맞게 고쳐 주세요.'
+    ])+
+    '<div class="card"><div class="label">자기선언</div>'+rows+
+      '<div class="row" style="margin-top:10px"><button class="btn small" id="declAdd">＋ 한 줄 추가</button></div></div>';
+  document.getElementById('declAdd').onclick=function(){D.decl.lines.push('');save(true);render();
+    var ins=view.querySelectorAll('.decl textarea');ins[ins.length-1].focus();};
+  [].forEach.call(view.querySelectorAll('[data-ddel]'),function(b){b.onclick=function(){
+    var i=+b.getAttribute('data-ddel');if(D.decl.lines[i].trim()&&!confirm('이 줄을 지울까요?\n'+D.decl.lines[i]))return;
+    D.decl.lines.splice(i,1);save();render();};});
 }
 
 /* ---------- 주간 (Weekly-Plan) ---------- */
