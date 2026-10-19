@@ -165,6 +165,22 @@ table.rm td.c.half{border-left:2px solid #cfcabd}
 .wk td.wc.s1{background:var(--green3);box-shadow:inset 3px 0 var(--green2)}
 .wk td.wc.s2{background:var(--green2);box-shadow:inset 3px 0 var(--green)}
 .wk td.wc.s2::before{content:"✓ ";color:var(--green);font-weight:700}
+.wk th i{display:block;font-style:normal;font-size:10px;line-height:1}
+/* 끝까지 해내기: WOOP · 만약~그러면 · 신호등 */
+.kp{border:1.5px solid var(--green2)}
+.kp .q{display:grid;grid-template-columns:74px 1fr;gap:6px;align-items:start;border-bottom:1px solid var(--line);padding:3px 0}
+.kp .q:last-child{border-bottom:0}
+.kp .q b{font-size:13px;color:var(--green);padding-top:5px;line-height:1.2}
+.kp .q b small{display:block;font-weight:400;font-size:10px;color:var(--sub)}
+.kp textarea{background-image:none;font-size:14px;line-height:1.5;padding-top:4px}
+.ift{display:grid;grid-template-columns:auto 1fr;gap:2px 6px;align-items:center}
+.ift span{font-size:12px;color:var(--sub);white-space:nowrap}
+.kp .hint{font-size:12px;color:var(--sub);margin:2px 0 4px;background:var(--green3);border-radius:6px;padding:4px 8px}
+.sig{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin:2px 0}
+.sig button{min-height:44px;border-radius:9px;border:1px solid var(--line);background:#fff;font:inherit;font-size:13px;color:var(--ink);padding:0 2px}
+.sig button.on{border:2px solid var(--green);background:var(--green3);font-weight:700}
+.kcnt{font-size:15px;font-weight:700;margin:2px 0 6px}
+.kcnt span{margin-right:12px}
 .lf{font-size:13px;margin:4px 0;display:flex;gap:6px;align-items:flex-start}
 .lf span{flex:1}
 
@@ -399,6 +415,10 @@ function grow(el){
 var toastT;
 function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(function(){t.classList.remove('show');},1300);}
 function how(title,items){return '<details class="how"><summary>'+title+'</summary><ul>'+items.map(function(i){return '<li>'+i+'</li>';}).join('')+'</ul></details>';}
+function qrow(name,sub,body){return '<div class="q"><b>'+name+(sub?'<small>'+sub+'</small>':'')+'</b><div>'+body+'</div></div>';}
+function ifThen(pre,ph1,ph2){return '<div class="ift"><span>만약</span>'+ta(pre+'If',ph1,'plain',1)+'<span>→ 그때</span>'+ta(pre+'Then',ph2,'plain',1)+'</div>';}
+var SIGS=[null,'🟢','🟡','🔴'];
+function sigBtns(key,cur,labels){return '<div class="sig">'+labels.map(function(x,i){return '<button data-sig="'+key+'" data-v="'+(i+1)+'" class="'+(cur===i+1?'on':'')+'">'+x+'</button>';}).join('')+'</div>';}
 function lab(t,small,right){return '<div class="lab'+(right?' r':'')+'">'+t+(small?' <small>'+small+'</small>':'')+'</div>';}
 function ymLine(){var a=ym(D.cur);return '<div class="ymd"><b>'+a.y+'</b> 년 <b>'+a.m+'</b> 월</div>';}
 function scrollKeep(fn){var y=window.scrollY;fn();window.scrollTo(0,y);}
@@ -648,7 +668,8 @@ function rWeek(){
   var mo=mondayOf(D.sel),w=weekData(mo,false)||blankWeek(),td=todayStr(),a=pd(mo),e=pd(addDays(mo,6));
   var head='<tr><th style="cursor:default">TASK</th>';
   for(var i=0;i<7;i++){var s=addDays(mo,i);
-    head+='<th data-openday="'+s+'" class="'+(i===6?'sun':i===5?'sat':'')+(s===td?' today':'')+'">'+DOWE[i].slice(0,3)+'<b>'+pd(s).getDate()+'</b></th>';}
+    var sd=dayData(s,false),sg=sd&&sd.sig?'<i>'+SIGS[sd.sig]+'</i>':'';
+    head+='<th data-openday="'+s+'" class="'+(i===6?'sun':i===5?'sat':'')+(s===td?' today':'')+'">'+DOWE[i].slice(0,3)+'<b>'+pd(s).getDate()+'</b>'+sg+'</th>';}
   head+='</tr>';
   var body='';
   for(var r=0;r<8;r++){
@@ -660,14 +681,35 @@ function rWeek(){
   var lfs='';
   for(var j=0;j<7;j++){var dd=dayData(addDays(mo,j),false);
     if(dd&&dd.longfor&&dd.longfor.trim())lfs+='<div class="lf"><span><b>'+DOW[j]+'</b> '+esc(dd.longfor).replace(/\n/g,' ')+'</span><button class="btn small" data-lfup="'+j+'">Plan에 올리기</button></div>';}
+  // 주간 돌아보기: 이번 주 신호등 개수와 저녁마다 적은 "멈춘 순간"
+  var cnt=[0,0,0,0],stuck='',res={o:'○',t:'△',x:'✕'};
+  for(var k=0;k<7;k++){var kd=dayData(addDays(mo,k),false);if(!kd)continue;
+    if(kd.sig)cnt[kd.sig]++;
+    if((kd.stuck&&kd.stuck.trim())||kd.res)stuck+='<div class="lf"><span><b>'+DOW[k]+'</b> '+(kd.res?res[kd.res]+' ':'')+esc(kd.stuck||'').replace(/\n/g,' ')+'</span></div>';}
+  var pw=weekData(addDays(mo,-7),false),prevObs=pw&&pw.rvObs&&pw.rvObs.trim(),prevGood=pw&&pw.rvGood&&pw.rvGood.trim();
+  var woop='<div class="page kp" style="margin-bottom:6px">'+lab('이번 주 WOOP','일요일 10분')+
+    ((prevObs||prevGood)?'<div class="hint">지난주 돌아보기 → '+(prevObs?'걸림돌: <b>'+esc(prevObs)+'</b>':'')+(prevObs&&prevGood?' / ':'')+(prevGood?'잘 먹힌 것: <b>'+esc(prevGood)+'</b>':'')+'</div>':'')+
+    qrow('W 바람','딱 1~2개',ta('@w.woopW','이번 주 꼭 이루고 싶은 것','plain',1))+
+    qrow('O 결과','30초 상상',ta('@w.woopO1','이게 되면 가장 좋은 점','plain',1))+
+    qrow('O 걸림돌','내 안의 것',ta('@w.woopO2','예: 피곤하면 폰부터 집는 습관','plain',1)+(prevObs?'<button class="btn small" id="obsPull">지난주 걸림돌 가져오기</button>':''))+
+    qrow('P 계획','만약~그러면',ifThen('@w.woopP','[걸림돌]이 생기면','[이렇게] 한다'))+
+  '</div>';
+  var review='<div class="page kp" style="margin-top:6px">'+lab('이번 주 돌아보기','새 WOOP 쓰기 전 5분')+
+    '<div class="kcnt"><span>🟢 '+cnt[1]+'</span><span>🟡 '+cnt[2]+'</span><span>🔴 '+cnt[3]+'</span></div>'+
+    (stuck?'<div class="hint" style="background:#fff">저녁마다 적은 멈춘 순간'+stuck+'</div>':'')+
+    qrow('자주 나온<br>걸림돌','다음 주 WOOP로',ta('@w.rvObs','','plain',1))+
+    qrow('잘 먹힌<br>만약~그러면','다음 주에도',ta('@w.rvGood','','plain',1))+
+  '</div>';
   view.innerHTML=
     how('📖 주간 쓰는 법',[
       '매주 <b>일요일</b>에 다음 주를 계획해요. 월간 로드맵에서 이번 주에 걸린 과제를 보고 <b>Plan</b>을 적어요.',
       '<b>Critical Success Factor</b>: 이번 주가 성공하려면 어디에 신경 쓸지.',
       '<b>TASK</b>에 과제를 적고, 요일 칸을 눌러 그날 할 일을 적어요. 칸마다 <b>할 일 / 완료</b>로 진척을 표시해요.',
       '요일 이름을 누르면 그날 데일리 페이지로 가요.',
-      '데일리 4L의 Long for가 며칠 반복되면 "Plan에 올리기"로 주간 계획에 넣어요.'
-    ])+
+      '데일리 4L의 Long for가 며칠 반복되면 "Plan에 올리기"로 주간 계획에 넣어요.',
+      '<b>WOOP</b>: 바람 → 좋은 결과 상상 → <b>바로 이어서</b> 내 안의 걸림돌 → "만약 걸림돌이 생기면 그때 이렇게" 순서로 써요. 해 보니 도저히 안 될 것 같으면 목표를 줄여도 정답이에요.',
+      '<b>돌아보기</b>: 데일리 신호등 개수와 멈춘 순간이 자동으로 모여요. 제일 자주 나온 걸림돌을 적어 두면 다음 주 WOOP에 가져올 수 있어요.'
+    ])+woop+
     '<div class="page" style="margin-bottom:6px"><div class="ymd"><b>'+a.getFullYear()+'</b> 년 <b>'+(a.getMonth()+1)+'</b> 월 <b>'+a.getDate()+'</b> ~ <b>'+(e.getMonth()!==a.getMonth()?(e.getMonth()+1)+'/':'')+e.getDate()+'</b> 일</div>'+
       '<div class="spread two" style="margin:0">'+
         '<div>'+lab('Plan')+ta('@w.plan','이번 주 계획','',4)+'</div>'+
@@ -680,7 +722,10 @@ function rWeek(){
         '<div>'+lab('Words of Praise','',true)+ta('@w.praise','이번 주 나에게 칭찬','grid',5)+'</div>'+
       '</div>'+
     '</div>'+
-    (lfs?'<div class="page">'+lab('이번 주 Long for')+lfs+'</div>':'');
+    (lfs?'<div class="page">'+lab('이번 주 Long for')+lfs+'</div>':'')+review;
+  var op=document.getElementById('obsPull');if(op)op.onclick=function(){
+    var wk=weekData(mo,true);if(wk.woopO2&&wk.woopO2.trim()&&!confirm('지금 적힌 걸림돌을 바꿀까요?'))return;
+    wk.woopO2=prevObs;save(true);scrollKeep(render);toast('지난주 걸림돌을 가져왔어요');};
   view.querySelector('.wk tbody').addEventListener('click',function(ev){
     var c=ev.target.closest('[data-wc]');if(c)editWeekCell(c.getAttribute('data-wc'));
   });
@@ -728,15 +773,38 @@ function rDay(){
       '<div class="ccell">'+ta('@d.'+ck,'','',3)+'</div>';
   }
   function l4(k,name,sub){return '<div class="it"><b>'+name+'<small>'+sub+'</small></b>'+ta('@d.'+k,'','plain',2)+'</div>';}
+  // 끝까지 해내기: 아침 실행의도 / 점심 신호등 / 저녁 3분 점검
+  var me=dayData(s,false)||{},yd=dayData(addDays(s,-1),false),wk=weekData(mondayOf(s),false),hints=[];
+  if(yd&&yd.tmr&&yd.tmr.trim())hints.push('어제 저녁 정한 것: <b>'+esc(yd.tmr)+'</b>');
+  if(wk&&wk.woopW&&wk.woopW.trim())hints.push('이번 주 바람: <b>'+esc(wk.woopW)+'</b>'+(wk.woopPIf?' · 만약 '+esc(wk.woopPIf)+' → '+esc(wk.woopPThen||''):''));
+  var iiBox='<div class="page kp" style="margin-bottom:6px">'+lab('아침 5분 · 만약~그러면','시간·장소·첫 행동')+
+    (hints.length?'<div class="hint">'+hints.join('<br>')+'</div>':'')+
+    qrow('1순위','오늘 딱 하나',ta('@d.top','','plain',1))+
+    qrow('실행 1','2분 안에 시작',ifThen('@d.ii1','[시간]에 [장소]에서 [신호]가 오면','[첫 동작]을 한다'))+
+    qrow('실행 2','',ifThen('@d.ii2','',''))+
+    qrow('방해 대처','',ifThen('@d.iib','[방해]가 생기면','[대신 할 행동]을 한다'))+
+  '</div>';
+  var chkBox='<div class="page kp" style="margin-top:6px">'+lab('점심 후 1분 · 신호등')+
+    sigBtns('sig',me.sig,['🟢 계획대로','🟡 늦지만 하는 중','🔴 손도 못 댐'])+
+    (me.sig===3?qrow('오후 한 조각','가장 작은 것',ta('@d.fix','','plain',1)):'')+
+    '<div style="height:8px"></div>'+lab('자기 전 3분 · 점검')+
+    qrow('1순위 했나?','',sigBtns('res',{o:1,t:2,x:3}[me.res],['○ 했다','△ 조금','✕ 못 했다']))+
+    qrow('멈춘 순간','몇 시·무슨 상황',ta('@d.stuck','자책 말고 사실만','plain',1))+
+    qrow('내일 반영','한 줄',ta('@d.tmr','내일 아침 위에 떠요','plain',1))+
+  '</div>';
   view.innerHTML=
     how('📖 데일리 쓰는 법',[
       '<b>아침</b>: 위의 초록 칩(로드맵 과제·루틴)을 보고 오늘 할 일을 정해요.',
       '<b>Plan</b>은 빽빽하게 쓰지 않아요. 핵심 하나 + 아침 1~2개, 점심 이후 1개, 저녁엔 쉼이나 자기성장 1~2개.',
       '<b>Critical Success Factor</b>는 바로 옆 칸에: 그 일을 잘하려면 어디에 신경 쓸지, 끝나면 무엇이 남을지.',
       '<b>Record</b>: 한 일을 끝낼 때마다 그 시간 칸에 한 줄. 노란 칸이 지금 시간이에요.',
-      '<b>자기 전</b>: Record를 훑어보고 Daily-See를 4L로. Long for는 "내일로"를 누르면 내일 아침 Plan에 들어가요.'
+      '<b>자기 전</b>: Record를 훑어보고 Daily-See를 4L로. Long for는 "내일로"를 누르면 내일 아침 Plan에 들어가요.',
+      '<b>만약~그러면</b>: 할 일을 "언제·어디서·첫 동작"으로 바꿔 써요. 신호는 이미 매일 하는 일(등교 후, 설거지 후)에 붙이고, "그때" 뒤엔 2분 안에 시작할 동작만.',
+      '<b>신호등</b>은 점심 먹고 바로 눌러요. 🔴이면 오후에 할 가장 작은 한 조각만 다시 정해요. 이번 주 신호등은 주간 페이지에 자동으로 모여요.',
+      '<b>자기 전 점검</b>의 "내일 반영"은 다음 날 아침 칸 위에 떠요.'
     ])+
     ((declHtml||chips)?'<div class="page" style="margin-bottom:6px">'+declHtml+(chips?'<div class="chips" style="margin-top:6px">'+chips+'</div>':'')+'</div>':'')+
+    iiBox+
     '<p class="tip">📱 가로로 돌리면 종이처럼 넓게 써져요</p>'+
     '<div class="daily">'+
       '<div class="dh ymd"><span><b>'+dt.getFullYear()+'</b> 년 <b>'+(dt.getMonth()+1)+'</b> 월 <b>'+dt.getDate()+'</b> 일 <b>'+DOW[dowOf(s)]+'</b>요일</span><span>Daily-Plan</span></div>'+
@@ -753,7 +821,12 @@ function rDay(){
           '<button class="btn small" id="lfNext">➡️ 내일로</button></div></div>'+
       '</div>'+
       '<div class="praise">'+lab('Words of Praise','',true)+ta('@d.praise','','grid fill',6)+'</div>'+
-    '</div>';
+    '</div>'+chkBox;
+  [].forEach.call(view.querySelectorAll('[data-sig]'),function(b){b.onclick=function(){
+    var k=b.getAttribute('data-sig'),v=+b.getAttribute('data-v'),d=dayData(s,true);
+    if(k==='res')v=['','o','t','x'][v];
+    d[k]=d[k]===v?(k==='res'?'':0):v;save(true);scrollKeep(render);
+  };});
   var dlEl=document.getElementById('declLine');if(dlEl)dlEl.onclick=readDecl;
   document.getElementById('lfNext').onclick=function(){
     var v=(getV('@d.longfor')||'').trim();
