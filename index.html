@@ -533,6 +533,7 @@ function rLife(){
     how('📖 인생지도 쓰는 법',[
       '가운데 <b>Goals</b>에 인생의 큰 목표를 적어요.',
       '다섯 갈래(일·자기성장·가족·인간관계·향유)를 누르면 영역 이름과 그 영역에서 바라는 것을 적을 수 있어요.',
+      '<b>Memo</b>: 다섯 갈래에 적은 바람을 보고, 영역마다 <b>이번 달에 실제로 할 일</b>을 하나씩 적어요. 이게 월간계획 Plan으로 넘어가요.',
       '<b>매달 다시 그려요.</b> 새 달을 열면 지난달 내용이 밑그림으로 들어와요.',
       '오른쪽엔 늘리고 싶은 습관(Good)과 줄이고 싶은 습관(Bad). 아래 큰 칸엔 이번 달 몸에 붙일 습관 하나.'
     ])+
@@ -541,7 +542,7 @@ function rLife(){
         '<div class="lifemap"><svg viewBox="0 0 100 100" preserveAspectRatio="none">'+
           '<circle cx="50" cy="50" r="27" fill="#fff" stroke="#cfcabd" stroke-width=".4"/><circle cx="50" cy="50" r="31" fill="none" stroke="#e2ded3" stroke-width=".3"/>'+lines+'</svg>'+
           '<div class="goalsbox"><b>Goals</b>'+ta('life.goals','큰 목표','plain',3)+'</div>'+areas+'</div>'+
-        lab('Memo')+ta('life.memo','','grid fill',6)+
+        lab('Memo','영역별 이번 달 할 일')+ta('life.memo','일: \n자기성장: \n가족: \n인간관계: \n향유: ','grid fill',6)+
       '</div>'+
       '<div class="page">'+
         '<div class="hab" style="flex:none">'+
