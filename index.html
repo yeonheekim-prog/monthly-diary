@@ -704,6 +704,7 @@ function rWeek(){
   view.innerHTML=
     how('📖 주간 쓰는 법',[
       '매주 <b>일요일</b>에 다음 주를 계획해요. 월간 로드맵에서 이번 주에 걸린 과제를 보고 <b>Plan</b>을 적어요.',
+      '<b>자동 채우기</b>: 이번 주(일요일엔 다음 주도)가 비어 있으면 앱을 열 때 저절로 채워져요. TASK = 로드맵 과제, 요일 칸 = 로드맵에 찍은 날, Plan = 이번 주 걸린 과제와 달력 일정, CSF = 그 과제의 월간 CSF. 이미 적은 건 건드리지 않아요. 로드맵을 고친 뒤엔 "로드맵에서 가져오기"로 빈 곳만 더 채워요.',
       '<b>Critical Success Factor</b>: 이번 주가 성공하려면 어디에 신경 쓸지.',
       '<b>TASK</b>에 과제를 적고, 요일 칸을 눌러 그날 할 일을 적어요. 칸마다 <b>할 일 / 완료</b>로 진척을 표시해요.',
       '요일 이름을 누르면 그날 데일리 페이지로 가요.',
@@ -712,6 +713,9 @@ function rWeek(){
       '<b>돌아보기</b>: 데일리 신호등 개수와 멈춘 순간이 자동으로 모여요. 제일 자주 나온 걸림돌을 적어 두면 다음 주 WOOP에 가져올 수 있어요.'
     ])+woop+
     '<div class="page" style="margin-bottom:6px"><div class="ymd"><b>'+a.getFullYear()+'</b> 년 <b>'+(a.getMonth()+1)+'</b> 월 <b>'+a.getDate()+'</b> ~ <b>'+(e.getMonth()!==a.getMonth()?(e.getMonth()+1)+'/':'')+e.getDate()+'</b> 일</div>'+
+      '<div class="hint" style="display:flex;align-items:center;gap:6px;justify-content:space-between">'+
+        '<span>'+(w.auto?'🔁 '+md(w.auto)+'에 로드맵에서 자동으로 채웠어요':'자기선언 → 인생지도 → 월간계획 → 로드맵 → <b>이번 주</b>')+'</span>'+
+        '<button class="btn small" id="fromAbove">⬇ 로드맵에서 가져오기</button></div>'+
       '<div class="spread two" style="margin:0">'+
         '<div>'+lab('Plan')+ta('@w.plan','이번 주 계획','',4)+'</div>'+
         '<div>'+lab('Critical Success Factor','',true)+ta('@w.csf','이번 주 이것만 지키면 성공','',4)+'</div>'+
@@ -724,6 +728,9 @@ function rWeek(){
       '</div>'+
     '</div>'+
     (lfs?'<div class="page">'+lab('이번 주 Long for')+lfs+'</div>':'')+review;
+  document.getElementById('fromAbove').onclick=function(){
+    var n=fillWeek(mo);save(true);scrollKeep(render);
+    toast(n?'빈 곳 '+n+'군데를 채웠어요':'새로 가져올 게 없어요 (로드맵에 이번 주 칸을 찍어 주세요)');};
   var op=document.getElementById('obsPull');if(op)op.onclick=function(){
     var wk=weekData(mo,true);if(wk.woopO2&&wk.woopO2.trim()&&!confirm('지금 적힌 걸림돌을 바꿀까요?'))return;
     wk.woopO2=prevObs;save(true);scrollKeep(render);toast('지난주 걸림돌을 가져왔어요');};
@@ -753,6 +760,60 @@ function editWeekCell(key){
     if(v||state)wk.cells[key]={t:v,s:state};else delete wk.cells[key];
     save(true);closeSheet();scrollKeep(render);
   };
+}
+
+/* 주간 자동 채우기: 자기선언 → 인생지도 → 월간계획 → 로드맵 → 주간 순서로 내려온 것을 그 주에 옮김 */
+function normT(s){return String(s||'').replace(/^[\s·•\-\*\d\.\)]+/,'').replace(/\s*\(.*?\)\s*/g,' ').split('→')[0].split(' — ')[0].replace(/\s+/g,' ').trim();}
+function shortT(s){return String(s||'').trim().replace(/^[^:：]{1,6}[:：]\s*/,'');} // "일: 주식 …" → "주식 …"
+function weekFromAbove(mo){
+  var full=[],cells={},act={},plan=[],csf=[];
+  function idx(nm){var i=full.indexOf(nm);if(i<0&&full.length<8){full.push(nm);i=full.length-1;}return i;}
+  var m0=D.months[mo.slice(0,7)];
+  if(m0)m0.road.rows.forEach(function(r){if(r.name.trim())idx(r.name.trim());}); // 로드맵 과제 순서 = 월간계획 순서
+  for(var d=0;d<7;d++)roadOn(addDays(mo,d)).forEach(function(t){
+    var i=idx(t.name.trim());if(i<0)return;cells[i+'-'+d]=t.s;(act[i]=act[i]||[]).push(d);});
+  Object.keys(act).map(Number).sort(function(a,b){return a-b;}).forEach(function(i){
+    var nm=full[i],days=act[i];
+    plan.push('· '+nm+' — '+days.map(function(x){return DOW[x];}).join('·'));
+    var mm=D.months[addDays(mo,days[0]).slice(0,7)];if(!mm)return;
+    var pl=(mm.plan.text||'').split('\n'),cl=(mm.plan.csf||'').split('\n'); // 월간계획 n번째 줄 ↔ CSF n번째 줄
+    for(var j=0;j<pl.length;j++)if(normT(pl[j])&&normT(pl[j])===normT(nm)){if(cl[j]&&cl[j].trim())csf.push('· '+cl[j].trim());break;}
+  });
+  for(var k=0;k<7;k++){var s=addDays(mo,k),cm=D.months[s.slice(0,7)],note=cm&&cm.cal.notes[+s.slice(8)];
+    if(note)plan.push('📅 '+md(s)+'('+DOW[k]+') '+note.replace(/\n/g,', '));}
+  return {tasks:full,cells:cells,plan:plan,csf:csf};
+}
+function weekEmpty(w){return !(w.plan||'').trim()&&!(w.csf||'').trim()&&!w.tasks.some(function(t){return t&&t.trim();})&&!Object.keys(w.cells||{}).length;}
+// 빈 곳만 채우고, 이미 적은 건 건드리지 않음. 바뀐 개수를 돌려줌
+function fillWeek(mo){
+  var f=weekFromAbove(mo);if(!f.tasks.length&&!f.plan.length)return 0;
+  var w=weekData(mo,true),n=0,rowOf={};
+  f.tasks.forEach(function(t,i){
+    var st=shortT(t),r=-1;
+    for(var j=0;j<8;j++)if(w.tasks[j]&&(normT(w.tasks[j])===normT(st)||normT(w.tasks[j])===normT(t))){r=j;break;}
+    if(r<0){r=w.tasks.findIndex(function(x){return !x||!x.trim();});if(r<0)return;w.tasks[r]=st;n++;}
+    rowOf[i]=r;
+  });
+  Object.keys(f.cells).forEach(function(k){var p=k.split('-'),r=rowOf[p[0]];if(r==null)return;
+    var key=r+'-'+p[1];if(!w.cells[key]){w.cells[key]={t:'',s:f.cells[k]};n++;}});
+  function addLines(field,lines){var cur=(w[field]||'').split('\n').map(function(x){return x.trim();});
+    lines.forEach(function(l){if(cur.indexOf(l)<0){w[field]=(w[field]&&w[field].trim()?w[field].replace(/\s+$/,'')+'\n':'')+l;cur.push(l);n++;}});}
+  addLines('plan',f.plan);addLines('csf',f.csf);
+  if(n)w.auto=todayStr();
+  return n;
+}
+// 이번 주(일요일엔 다음 주도)가 비어 있으면 자동으로 채움. 한 번 채운 주는 다시 건드리지 않음
+function autoWeeks(){
+  var t=todayStr(),mos=[mondayOf(t)],done=0;
+  if(dowOf(t)===6)mos.push(addDays(mondayOf(t),7));
+  mos.forEach(function(mo){
+    var had=D.weeks[mo];
+    if(had&&(had.auto||!weekEmpty(had)))return;
+    if(!fillWeek(mo)){if(!had)delete D.weeks[mo];return;}
+    if(!had)markNew('w:'+mo,D.weeks[mo]); // 새로 만든 주는 다른 기기에 적은 게 있으면 그쪽이 이기게
+    done++;
+  });
+  return done;
 }
 
 /* 8. 데일리: Plan(아침·점심·저녁) | CSF | Record, 아래 Daily-See | Words of Praise */
@@ -1028,9 +1089,14 @@ function syncNow(){
     if(e.status===409||e.status===422)syncAgain=true;
     saveSY();setSyncIcon('err',m);
   }).then(function(){
-    syncing=false;
+    syncing=false;runAuto(); // 최신 로드맵을 받아온 뒤에 이번 주 채우기
     if(syncAgain){syncAgain=false;setTimeout(syncNow,800);}
   });
+}
+function runAuto(){
+  if(!autoWeeks())return;
+  save(true);refreshView();scheduleSync(1500);
+  if(D.tab==='week')toast('이번 주 목표를 로드맵에서 채웠어요');
 }
 function refreshView(){
   var a=document.activeElement;
@@ -1120,7 +1186,8 @@ if(D.lastDay!==todayStr()){setSel(todayStr());D.lastDay=todayStr();D.tab='day';}
 save(true);
 render();
 setSyncIcon();
-syncNow();
+if(SY.token)syncNow();else runAuto();
+document.addEventListener('visibilitychange',function(){if(!document.hidden&&!SY.token)runAuto();});
 })();
 </script>
 <script src="/my-dashboard/backup.js" defer></script>
